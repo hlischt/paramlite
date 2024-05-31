@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #define PARAMLITE_VERSION "0.1"
 #define EXIT_CLI_ERROR 2
+#define CHARBUF_SIZE 4096
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
@@ -123,6 +124,25 @@ void walk_list(struct Node *node) {
 		}
 		node = node->next;
 	}
+}
+
+// Read the entire standard input into a buffer and return its size.
+// Don't forget to free the buffer.
+size_t slurp_stdin(char **dst) {
+	size_t n = 0;
+	size_t bufsize = 0;
+	char *buf = malloc(CHARBUF_SIZE);
+	while ((n = fread(buf, 1, CHARBUF_SIZE, stdin)) == CHARBUF_SIZE) {
+		bufsize += n;
+		buf = realloc(buf, bufsize + CHARBUF_SIZE);
+		if (buf == NULL) {
+			perror("read_stdin_query");
+			exit(EXIT_FAILURE);
+		}
+	}
+	bufsize += n;
+	*dst = buf;
+	return bufsize;
 }
 
 int main(int argc, char **argv) {
