@@ -105,21 +105,45 @@ void parse_null(struct Node **curr, struct Node **start) {
 	cycle_curr_node(node, curr, start);
 }
 
-void walk_list(struct Node *node) {
-	int c = 1;
+void bind_list(struct Node *node, sqlite3_stmt *stmt) {
+	int idx = 1;
+	int err = 0;
 	while (node != NULL) {
 		switch (node->kind) {
 		case node_null:
-			printf("Param %d: NULL\n", c++);
+			err = sqlite3_bind_null(stmt, idx);
+			if (err != SQLITE_OK) {
+				fprintf(stderr, "-n: %s\n",
+					sqlite3_errstr(err));
+			}
 			break;
 		case node_int:
-			printf("Param %d: %lld\n", c++, node->data.num_int);
+			err = sqlite3_bind_int64(stmt, idx,
+						 node->data.num_int);
+			if (err != SQLITE_OK) {
+				fprintf(stderr, "-d %lld: %s\n",
+					node->data.num_int,
+					sqlite3_errstr(err));
+			}
 			break;
 		case node_double:
-			printf("Param %d: %f\n", c++, node->data.num_double);
+			err = sqlite3_bind_double(stmt, idx,
+						  node->data.num_double);
+			if (err != SQLITE_OK) {
+				fprintf(stderr, "-f %f: %s\n",
+					node->data.num_double,
+					sqlite3_errstr(err));
+			}
 			break;
 		case node_text:
-			printf("Param %d: %s\n", c++, node->data.text);
+			err = sqlite3_bind_text(stmt, idx,
+						node->data.text,
+						-1, SQLITE_STATIC);
+			if (err != SQLITE_OK) {
+				fprintf(stderr, "-f %f: %s\n",
+					node->data.num_double,
+					sqlite3_errstr(err));
+			}
 			break;
 		}
 		node = node->next;
@@ -143,6 +167,54 @@ size_t slurp_stdin(char **dst) {
 	bufsize += n;
 	*dst = buf;
 	return bufsize;
+}
+
+#define SQLITE_ERR_HANDLE(after_stmt)					\
+	if ((retcode) != SQLITE_OK) {					\
+		errmsg = sqlite3_errmsg((db));				\
+		fprintf(stderr, "%s: %s\n", db_path, errmsg);		\
+		if (after_stmt) sqlite3_finalize(stmt);			\
+		sqlite3_close(db);					\
+		return;							\
+	}
+
+void execute_query(struct Node *list, char *db_path, int open_mode,
+		   char *query, size_t query_len) {
+	int retcode = SQLITE_OK;
+	sqlite3 *db = NULL;
+	sqlite3_stmt *stmt = NULL;
+	const char *tail = NULL;
+	const char *errmsg = NULL;
+	retcode = sqlite3_open_v2(db_path, &db, open_mode, NULL);
+	SQLITE_ERR_HANDLE(false);
+	retcode = sqlite3_prepare_v2(db, query, query_len, &stmt, &tail);
+	SQLITE_ERR_HANDLE(true);
+	bind_list(list, stmt);
+	int cols = sqlite3_column_count(stmt);
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		for (int i = 0; i < cols; i++) {
+			switch (sqlite3_column_type(stmt, i)) {
+			case SQLITE_NULL:
+				printf("[NULL]"); // Possible custom string?
+				break;
+			case SQLITE_INTEGER:
+				printf("%lld", sqlite3_column_int64(stmt, i));
+				break;
+			case SQLITE_FLOAT:
+				printf("%f", sqlite3_column_double(stmt, i));
+				break;
+			case SQLITE_TEXT:
+				printf("%s", sqlite3_column_text(stmt, i));
+				break;
+			case SQLITE_BLOB:
+				printf("[BLOB]");
+				break;
+			}
+			printf("%s", i == cols-1 ? "\n" : "\t"); // RS/FS
+		}
+	}
+	sqlite3_finalize(stmt);
+	sqlite3_close(db);
 }
 
 int main(int argc, char **argv) {
@@ -196,10 +268,18 @@ int main(int argc, char **argv) {
 			break;
 		}
 	}
-	printf("Open mode: %d\n", open_mode);
-	walk_list(start);
+	char *query = NULL;
+	size_t query_size = slurp_stdin(&query);
+	for (int i = optind; i < argc; i++) {
+		execute_query(start, argv[i], open_mode, query, query_size);
+	}
+	if (query != NULL) free(query);
 	if (rs_malloc) free(record_sep);
 	if (fs_malloc) free(field_sep);
 	if (start != NULL) destroy_linked_list(start);
+	if (optind >= argc) {
+		fprintf(stderr, "Error: No database provided.\n");
+		return EXIT_CLI_ERROR;
+	}
 	return EXIT_SUCCESS;
 }
