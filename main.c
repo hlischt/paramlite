@@ -146,6 +146,7 @@ void bind_list(struct Node *node, sqlite3_stmt *stmt) {
 			}
 			break;
 		}
+		idx++;
 		node = node->next;
 	}
 }
