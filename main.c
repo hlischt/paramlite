@@ -140,8 +140,8 @@ void bind_list(struct Node *node, sqlite3_stmt *stmt) {
 						node->data.text,
 						-1, SQLITE_STATIC);
 			if (err != SQLITE_OK) {
-				fprintf(stderr, "-f %f: %s\n",
-					node->data.num_double,
+				fprintf(stderr, "-t %s: %s\n",
+					node->data.text,
 					sqlite3_errstr(err));
 			}
 			break;
