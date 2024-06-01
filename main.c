@@ -176,10 +176,10 @@ size_t slurp_stdin(char **dst) {
 		fprintf(stderr, "%s: %s\n", db_path, errmsg);		\
 		if (after_stmt) sqlite3_finalize(stmt);			\
 		sqlite3_close(db);					\
-		return;							\
+		return retcode;						\
 	}
 
-void execute_query(struct Node *list, char *db_path, int open_mode,
+int execute_query(struct Node *list, char *db_path, int open_mode,
 		   char *query, size_t query_len) {
 	int retcode = SQLITE_OK;
 	sqlite3 *db = NULL;
@@ -192,7 +192,7 @@ void execute_query(struct Node *list, char *db_path, int open_mode,
 	SQLITE_ERR_HANDLE(true);
 	bind_list(list, stmt);
 	int cols = sqlite3_column_count(stmt);
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
+	while ((retcode = sqlite3_step(stmt)) == SQLITE_ROW) {
 		for (int i = 0; i < cols; i++) {
 			switch (sqlite3_column_type(stmt, i)) {
 			case SQLITE_NULL:
@@ -216,6 +216,13 @@ void execute_query(struct Node *list, char *db_path, int open_mode,
 	}
 	sqlite3_finalize(stmt);
 	sqlite3_close(db);
+	if (retcode == SQLITE_MISMATCH) {
+		fprintf(stderr, "SQL query error: %s (%s)\n",
+			sqlite3_errstr(retcode),
+			"check the number of parameters and their types");
+		return retcode;
+	}
+	return SQLITE_OK;
 }
 
 int main(int argc, char **argv) {
@@ -271,13 +278,21 @@ int main(int argc, char **argv) {
 	}
 	char *query = NULL;
 	size_t query_size = slurp_stdin(&query);
+	int retcode = SQLITE_OK;
 	for (int i = optind; i < argc; i++) {
-		execute_query(start, argv[i], open_mode, query, query_size);
+		retcode = execute_query(start, argv[i], open_mode,
+					query, query_size);
+		if (retcode == SQLITE_MISMATCH) {
+			// Mismatched parameters,
+			// query won't work with any database
+			break;
+		}
 	}
 	if (query != NULL) free(query);
 	if (rs_malloc) free(record_sep);
 	if (fs_malloc) free(field_sep);
 	if (start != NULL) destroy_linked_list(start);
+	if (retcode == SQLITE_MISMATCH) return EXIT_FAILURE;
 	if (optind >= argc) {
 		fprintf(stderr, "Error: No database provided.\n");
 		return EXIT_CLI_ERROR;
