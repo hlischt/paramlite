@@ -167,7 +167,7 @@ size_t slurp_stdin(char **dst) {
 		bufsize += n;
 		buf = realloc(buf, bufsize + CHARBUF_SIZE);
 		if (buf == NULL) {
-			perror("read_stdin_query");
+			perror(__func__);
 			exit(EXIT_FAILURE);
 		}
 	}

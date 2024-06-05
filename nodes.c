@@ -6,7 +6,7 @@
 struct Node *create_node_int(long long num) {
 	struct Node *node = malloc(sizeof(struct Node));
 	if (node == NULL) {
-		perror("create_node_int");
+		perror(__func__);
 		exit(1);
 	}
 	node->kind = node_int;
@@ -18,7 +18,7 @@ struct Node *create_node_int(long long num) {
 struct Node *create_node_double(double num) {
 	struct Node *node = malloc(sizeof(struct Node));
 	if (node == NULL) {
-		perror("create_node_double");
+		perror(__func__);
 		exit(1);
 	}
 	node->kind = node_double;
@@ -30,7 +30,7 @@ struct Node *create_node_double(double num) {
 struct Node *create_node_text(char *text) {
 	struct Node *node = malloc(sizeof(struct Node));
 	if (node == NULL) {
-		perror("create_node_text");
+		perror(__func__);
 		exit(1);
 	}
 	node->kind = node_text;
@@ -42,7 +42,7 @@ struct Node *create_node_text(char *text) {
 struct Node *create_node_null(void) {
 	struct Node *node = malloc(sizeof(struct Node));
 	if (node == NULL) {
-		perror("create_node_null");
+		perror(__func__);
 		exit(1);
 	}
 	node->kind = node_null;
