@@ -31,6 +31,12 @@ const char * const usage_str =
 "	-f <num>  Double-precision floating point number\n"
 "	-t <str>  Text\n";
 
+struct settings {
+	int open_mode;
+	char *field_sep;
+	char *record_sep;
+};
+
 /*
   Create a new string based on src with escape sequences evaluated,
   and make sep_str point to it. Don't forget to free(*sep_str)
@@ -179,14 +185,15 @@ size_t slurp_stdin(char **dst) {
 		return retcode;						\
 	}
 
-int execute_query(struct Node *list, char *db_path, int open_mode,
-		   char *query, size_t query_len) {
+int execute_query(struct Node *list, char *db_path,
+		  struct settings *settings,
+		  char *query, size_t query_len) {
 	int retcode = SQLITE_OK;
 	sqlite3 *db = NULL;
 	sqlite3_stmt *stmt = NULL;
 	const char *tail = NULL;
 	const char *errmsg = NULL;
-	retcode = sqlite3_open_v2(db_path, &db, open_mode, NULL);
+	retcode = sqlite3_open_v2(db_path, &db, settings->open_mode, NULL);
 	SQLITE_ERR_HANDLE(false);
 	retcode = sqlite3_prepare_v2(db, query, query_len, &stmt, &tail);
 	SQLITE_ERR_HANDLE(true);
@@ -211,7 +218,9 @@ int execute_query(struct Node *list, char *db_path, int open_mode,
 				printf("[BLOB]");
 				break;
 			}
-			printf("%s", i == cols-1 ? "\n" : "\t"); // RS/FS
+			printf("%s", i == cols-1
+			       ? settings->record_sep
+			       : settings->field_sep);
 		}
 	}
 	sqlite3_finalize(stmt);
@@ -226,9 +235,11 @@ int execute_query(struct Node *list, char *db_path, int open_mode,
 }
 
 int main(int argc, char **argv) {
-	int open_mode = SQLITE_OPEN_READONLY;
-	char *field_sep = "\t";
-	char *record_sep = "\n";
+	struct settings settings = {
+		.open_mode = SQLITE_OPEN_READONLY,
+		.field_sep = "\t",
+		.record_sep = "\n",
+	};
 	bool fs_malloc = false;
 	bool rs_malloc = false;
 	struct Node *start = NULL;
@@ -236,22 +247,22 @@ int main(int argc, char **argv) {
 	int c;
 	while ((c = getopt(argc, argv, ":rwcvhF:R:nd:f:t:")) != -1) {
 		switch (c) {
-		case 'r': open_mode = SQLITE_OPEN_READONLY;
+		case 'r': settings.open_mode = SQLITE_OPEN_READONLY;
 			break;
-		case 'w': open_mode &= ~SQLITE_OPEN_READONLY;
-			open_mode |= SQLITE_OPEN_READWRITE;
+		case 'w': settings.open_mode &= ~SQLITE_OPEN_READONLY;
+			settings.open_mode |= SQLITE_OPEN_READWRITE;
 			break;
-		case 'c': open_mode = SQLITE_OPEN_READWRITE |
+		case 'c': settings.open_mode = SQLITE_OPEN_READWRITE |
 				SQLITE_OPEN_CREATE;
 			break;
 		case 'v': printf("paramlite %s\n", PARAMLITE_VERSION);
 			return EXIT_SUCCESS;
 		case 'h': fputs(usage_str, stderr);
 			return EXIT_SUCCESS;
-		case 'F': change_sep(&field_sep, optarg);
+		case 'F': change_sep(&(settings.field_sep), optarg);
 			fs_malloc = true;
 			break;
-		case 'R': change_sep(&record_sep, optarg);
+		case 'R': change_sep(&(settings.record_sep), optarg);
 			rs_malloc = true;
 			break;
 		case 'n':
@@ -280,7 +291,7 @@ int main(int argc, char **argv) {
 	size_t query_size = slurp_stdin(&query);
 	int retcode = SQLITE_OK;
 	for (int i = optind; i < argc; i++) {
-		retcode = execute_query(start, argv[i], open_mode,
+		retcode = execute_query(start, argv[i], &settings,
 					query, query_size);
 		if (retcode == SQLITE_MISMATCH) {
 			// Mismatched parameters,
@@ -289,8 +300,8 @@ int main(int argc, char **argv) {
 		}
 	}
 	if (query != NULL) free(query);
-	if (rs_malloc) free(record_sep);
-	if (fs_malloc) free(field_sep);
+	if (rs_malloc) free(settings.record_sep);
+	if (fs_malloc) free(settings.field_sep);
 	if (start != NULL) destroy_linked_list(start);
 	if (retcode == SQLITE_MISMATCH) return EXIT_FAILURE;
 	if (optind >= argc) {
