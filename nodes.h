@@ -1,3 +1,5 @@
+#ifndef PARAMLITE_NODES_H
+#define PARAMLITE_NODES_H
 typedef enum {
 	node_null,
 	node_int,
@@ -27,3 +29,4 @@ struct Node *create_node_null(void);
 
 /* Recursively frees all nodes in a linked list */
 void destroy_linked_list(struct Node *node);
+#endif
