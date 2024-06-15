@@ -22,6 +22,8 @@ const char * const usage_str =
 "Output options:\n"
 "	-F <sep>  Output field separator (default \"\\t\")\n"
 "	-R <sep>  Output record separator (default \"\\n\")\n"
+"	-N <str>  Stand-in for NULL values (default \"[NULL]\")\n"
+"	-B <str>  Stand-in for BLOB values\n"
 "Other options:\n"
 "	-v        Show version information\n"
 "	-h        Show this help\n"
@@ -35,6 +37,8 @@ struct settings {
 	int open_mode;
 	char *field_sep;
 	char *record_sep;
+	char *null_str;
+	char *blob_str;
 };
 
 /*
@@ -203,7 +207,7 @@ int execute_query(struct Node *list, char *db_path,
 		for (int i = 0; i < cols; i++) {
 			switch (sqlite3_column_type(stmt, i)) {
 			case SQLITE_NULL:
-				printf("[NULL]"); // Possible custom string?
+				printf("%s", settings->null_str);
 				break;
 			case SQLITE_INTEGER:
 				printf("%lld", sqlite3_column_int64(stmt, i));
@@ -215,7 +219,20 @@ int execute_query(struct Node *list, char *db_path,
 				printf("%s", sqlite3_column_text(stmt, i));
 				break;
 			case SQLITE_BLOB:
-				printf("[BLOB]");
+				if (settings->blob_str != NULL) {
+					printf("%s", settings->blob_str);
+				} else {
+					unsigned char *escaped = NULL;
+					const unsigned char *blob = NULL;
+					size_t len, esc_len;
+					blob = sqlite3_column_blob(stmt, i);
+					len = sqlite3_column_bytes(stmt, i);
+					esc_len = escape_string(&escaped,
+								blob, len);
+					printf("%.*s", (int)esc_len, escaped);
+					free(escaped);
+					escaped = NULL;
+				}
 				break;
 			}
 			printf("%s", i == cols-1
@@ -239,13 +256,16 @@ int main(int argc, char **argv) {
 		.open_mode = SQLITE_OPEN_READONLY,
 		.field_sep = "\t",
 		.record_sep = "\n",
+		.null_str = "[NULL]",
+		.blob_str = NULL,
 	};
 	bool fs_malloc = false;
 	bool rs_malloc = false;
+	bool null_malloc = false;
 	struct Node *start = NULL;
 	struct Node *curr  = start;
 	int c;
-	while ((c = getopt(argc, argv, ":rwcvhF:R:nd:f:t:")) != -1) {
+	while ((c = getopt(argc, argv, ":rwcvhF:R:N:B:nd:f:t:")) != -1) {
 		switch (c) {
 		case 'r': settings.open_mode = SQLITE_OPEN_READONLY;
 			break;
@@ -264,6 +284,15 @@ int main(int argc, char **argv) {
 			break;
 		case 'R': change_sep(&(settings.record_sep), optarg);
 			rs_malloc = true;
+			break;
+		case 'N':
+			change_sep(&(settings.null_str), optarg);
+			null_malloc = true;
+			break;
+		case 'B':
+			change_sep(&(settings.blob_str), optarg);
+			// No blob_malloc variable because the default is NULL,
+			// which means no buffer was allocated.
 			break;
 		case 'n':
 			parse_null(&curr, &start);
@@ -302,6 +331,8 @@ int main(int argc, char **argv) {
 	if (query != NULL) free(query);
 	if (rs_malloc) free(settings.record_sep);
 	if (fs_malloc) free(settings.field_sep);
+	if (null_malloc) free(settings.null_str);
+	if (settings.blob_str != NULL) free(settings.blob_str);
 	if (start != NULL) destroy_linked_list(start);
 	if (retcode == SQLITE_MISMATCH) return EXIT_FAILURE;
 	if (optind >= argc) {
