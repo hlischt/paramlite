@@ -43,7 +43,7 @@ struct settings {
  */
 void change_sep(char **sep_str, char *src) {
 	size_t len = strlen(src);
-	char *dst = malloc(len);
+	char *dst = malloc(len + 1);
 	convert_escape_sequences(dst, src, len);
 	*sep_str = dst;
 }
