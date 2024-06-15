@@ -1,19 +1,27 @@
 .POSIX:
-.SUFFIXES:
-CFLAGS = -std=c99 -Wall -Werror -Wpedantic -Wextra -Wvla
-DEBUGFLAGS = $(CFLAGS) -Og -g -fsanitize=undefined,bounds,address
-SQLITEFLAGS = -lsqlite3
+prefix     = /usr/local
+# DEBUGFLAGS = -O2
+DEBUGFLAGS = -Og -g -fsanitize=undefined,bounds,address
+CFLAGS     = -std=c99 -Wall -Werror -Wpedantic -Wextra -Wvla $(DEBUGFLAGS)
+LDLIBS     = -lsqlite3
+PREREQS    = main.c nodes.o escaped_strings.o
 
 all: paramlite
 
-run: paramlite
-	./paramlite -h
+paramlite: $(PREREQS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PREREQS) $(LDLIBS)
 
-paramlite: main.c nodes.o escaped_strings.o
-	$(CC) $(DEBUGFLAGS) -o $@ $^ $(SQLITEFLAGS)
+nodes.o: nodes.h
+escaped_strings.o: escaped_strings.h
 
-nodes.o: nodes.c nodes.h
-	$(CC) -c $(DEBUGFLAGS) -o $@ $<
+install: paramlite
+	mkdir -p $(DESTDIR)$(prefix)/bin
+	cp -p paramlite $(DESTDIR)$(prefix)/bin
+	chmod 755 $(DESTDIR)$(prefix)/bin
 
-escaped_strings.o: escaped_strings.c escaped_strings.h
-	$(CC) -c $(DEBUGFLAGS) -o $@ $<
+uninstall:
+	rm -f $(DESTDIR)$(prefix)/bin/paramlite
+
+clean:
+	rm -f escaped_strings.o nodes.o main.o
+	rm -f paramlite
