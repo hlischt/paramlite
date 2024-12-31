@@ -316,6 +316,11 @@ int main(int argc, char **argv) {
 			break;
 		}
 	}
+	if (optind >= argc) {
+		fputs(usage_str, stderr);
+		fprintf(stderr, "\nError: No database provided.\n");
+		return EXIT_CLI_ERROR;
+	}
 	char *query = NULL;
 	size_t query_size = slurp_stdin(&query);
 	int retcode = SQLITE_OK;
@@ -335,9 +340,5 @@ int main(int argc, char **argv) {
 	if (settings.blob_str != NULL) free(settings.blob_str);
 	if (start != NULL) destroy_linked_list(start);
 	if (retcode == SQLITE_MISMATCH) return EXIT_FAILURE;
-	if (optind >= argc) {
-		fprintf(stderr, "Error: No database provided.\n");
-		return EXIT_CLI_ERROR;
-	}
 	return EXIT_SUCCESS;
 }
