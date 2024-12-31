@@ -1,7 +1,7 @@
 .POSIX:
 prefix     = /usr/local
-# DEBUGFLAGS = -O2
-DEBUGFLAGS = -Og -g -fsanitize=undefined,bounds,address
+DEBUGFLAGS = -O2
+# DEBUGFLAGS = -Og -g -fsanitize=undefined,bounds,address
 CFLAGS     = -std=c99 -Wall -Werror -Wpedantic -Wextra -Wvla $(DEBUGFLAGS)
 LDLIBS     = -lsqlite3
 PREREQS    = main.o nodes.o escaped_strings.o
