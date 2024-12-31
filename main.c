@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-#define PARAMLITE_VERSION "0.1"
+#define PARAMLITE_VERSION "1.0"
 #define EXIT_CLI_ERROR 2
 #define CHARBUF_SIZE 4096
 #include <unistd.h>
