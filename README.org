@@ -1,0 +1,49 @@
+* Paramlite
+Paramlite is a command-line program that lets you run prepared statements in a SQLite database, without having to interact with a programming language.
+
+** Usage
+Paramlite reads a SQL query from the standard input, and runs it on the database file provided by the user:
+#+BEGIN_SRC bash
+echo 'SELECT * from table;' | paramlite database.db
+#+END_SRC
+
+More importantly, paramlite can execute prepared statements, i.e. queries with placeholders in place of literals, which are useful to avoid [[https://bobby-tables.com/][SQL injection attacks]].
+#+BEGIN_SRC bash
+# Get the row whose id is the number 42
+echo 'SELECT * FROM table WHERE id = ?;' | paramlite -d 42 database.db
+#+END_SRC
+
+Multiple parameters can be used, getting substituted in order:
+#+BEGIN_SRC bash
+echo 'SELECT * FROM table WHERE name = ? LIMIT ?;' | paramlite -t Alice -d 5 database.db
+#+END_SRC
+
+For more information on the supported parameter types and options, see paramlite(1).
+
+** Building
+*** Requirements:
+- A POSIX-like operative system or environment.
+- A C99-compatible compiler.
+- =libsqlite3= and its header files.
+- Optionally, [[https://git.sr.ht/~sircmpwn/scdoc][scdoc]] can generate a man page from the file =paramlite.1.scd=.
+
+On Debian, the following command installs the previously mentioned components:
+#+BEGIN_SRC bash
+sudo apt install build-essentials libsqlite3-dev scdoc
+#+END_SRC
+Other operative systems may have different ways to meet these requirements.
+*** Instructions
+#+BEGIN_SRC bash
+git clone https://github.com/hlischt/paramlite.git
+cd paramlite
+make
+#+END_SRC
+
+An executable file called =paramlite= should be created on the working directory.
+
+Paramlite can be installed by running the command =make install=, which by default moves the binary to the directory =/usr/local/bin/= and the man page to =/usr/local/share/man/man1/=, which requires superuser privileges. An alternative location can be specified by using the "prefix" option when running make, as in =make install prefix=/home/user/.local=; the prefix directory is analogous to =/usr/local/=.
+
+To uninstall the program, run =make uninstall=, or =make uninstall prefix={prefix directory}= if =prefix= was customized.
+
+** License
+This project is licensed under the public-domain-equivalent [[https://opensource.org/license/0bsd/][BSD Zero Clause License]].
